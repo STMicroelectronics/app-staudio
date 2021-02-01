@@ -1,0 +1,37 @@
+<resources>
+    <string name="app_name">ST Audio</string>
+
+    <!-- Messages -->
+    <string name="no_audio_msg">No audio available on this device</string>
+
+    <string name="record_pane_title">Recorder</string>
+    <string name="play_pane_title">Player</string>
+
+    <string name="audio_play_content_desc">play or pause audio</string>
+
+    <string-array name="audio_play_outputs">
+        <item>Speaker</item>
+        <item>Headset</item>
+    </string-array>
+
+    <string name="title_output">Output</string>
+    <string name="title_volume">Volume</string>
+
+    <string name="audio_vol_down_content_desc">decrease volume</string>
+    <string name="audio_vol_up_content_desc">increase volume</string>
+    <string name="audio_vol_mute_content_desc">mute</string>
+
+    <string name="audio_record_content_desc">start or stop audio record</string>
+    <string name="audio_record_hint">enter file name</string>
+
+    <string name="audio_record_format">Format: AAC (.m4a)</string>
+
+    <string name="button_usb">Scan USB</string>
+    <string name="button_save">Save</string>
+    <string name="button_cancel">Cancel</string>
+
+    <string name="volume_internal">I</string>
+    <string name="volume_primary">P</string>
+    <string name="volume_external">E</string>
+
+</resources>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- top_margin = status bar (24dp) + toolbar (56dp) - text height (24sp) + margin (16dp)-->
+    <dimen name="top_margin_top">72dp</dimen>
+    <dimen name="top_margin_bottom">40px</dimen>
+
+    <dimen name="bottom_margin">60px</dimen>
+
+    <dimen name="horizontal_margin">16dp</dimen>
+    <dimen name="vertical_margin">16dp</dimen>
+
+    <dimen name="horizontal_margin_half">8dp</dimen>
+    <dimen name="vertical_margin_half">8dp</dimen>
+
+    <dimen name="horizontal_margin_quarter">4dp</dimen>
+    <dimen name="vertical_margin_quarter">4dp</dimen>
+
+    <!-- Layout fixed size -->
+    <dimen name="bottom_pane_height">108dp</dimen>
+    <dimen name="bottom_record_pane_height">100dp</dimen>
+    <dimen name="text_title_height">48dp</dimen>
+    <dimen name="edit_text_record_file">256dp</dimen>
+
+    <dimen name="icon_size">72dp</dimen>
+
+</resources>

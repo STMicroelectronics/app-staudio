@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingBottom="@dimen/vertical_margin_half"
+    android:paddingEnd="@dimen/horizontal_margin_half"
+    android:paddingStart="@dimen/horizontal_margin_half"
+    android:paddingTop="@dimen/vertical_margin_half"
+    tools:context="com.stmicroelectronics.staudio.MainActivity">
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/play_title"
+        android:layout_width="0dp"
+        android:layout_height="@dimen/text_title_height"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:cardCornerRadius="4dp"
+        app:cardBackgroundColor="@color/colorPrimaryDark"
+        app:cardElevation="0dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="@string/play_pane_title"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:textStyle="bold"/>
+
+        <Button
+            android:id="@+id/button_usb"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:layout_marginEnd="@dimen/horizontal_margin_half"
+            android:layout_marginStart="@dimen/horizontal_margin_half"
+            android:layout_marginTop="@dimen/vertical_margin_quarter"
+            android:layout_marginBottom="@dimen/vertical_margin_quarter"
+            android:onClick="scanExternal"
+            style="@style/Button"
+            android:text="@string/button_usb"/>
+
+    </androidx.cardview.widget.CardView>
+
+    <androidx.legacy.widget.Space
+        android:id="@+id/space1"
+        android:layout_width="0dp"
+        android:layout_height="2dp"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/play_title" />
+
+    <FrameLayout
+        android:id="@+id/recycler_audio"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/space1"
+        app:layout_constraintBottom_toTopOf="@+id/record_title">
+
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+            android:id="@+id/swipe_refresh_audio"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/audio_list"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:fadeScrollbars="true"
+                android:scrollbars="vertical">
+
+            </androidx.recyclerview.widget.RecyclerView>
+
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/audio_msg"
+            android:layout_gravity="center_horizontal"
+            android:text="@string/no_audio_msg"
+            android:visibility="gone"
+            style="@style/IconTitleTheme"/>
+
+    </FrameLayout>
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/record_title"
+        android:visibility="invisible"
+        android:layout_width="0dp"
+        android:layout_height="@dimen/text_title_height"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/space2"
+        app:cardCornerRadius="4dp"
+        app:cardBackgroundColor="@color/colorPrimaryDark"
+        app:cardElevation="0dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="@string/record_pane_title"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:textStyle="bold"/>
+
+    </androidx.cardview.widget.CardView>
+
+    <androidx.legacy.widget.Space
+        android:id="@+id/space2"
+        android:layout_width="0dp"
+        android:layout_height="2dp"
+        android:visibility="invisible"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/record_card" />
+
+    <LinearLayout
+        android:id="@+id/record_card"
+        android:layout_width="0dp"
+        android:visibility="invisible"
+        android:layout_height="@dimen/bottom_record_pane_height"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:orientation="vertical"
+        android:background="@color/colorBackground">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="@dimen/vertical_margin_half"
+            android:paddingBottom="@dimen/vertical_margin_half"
+            android:paddingStart="@dimen/horizontal_margin_quarter"
+            android:paddingEnd="@dimen/horizontal_margin_quarter">
+            <EditText
+                android:id="@+id/record_edit"
+                android:layout_width="@dimen/edit_text_record_file"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:layout_alignParentStart="true"
+                android:hint="@string/audio_record_hint"
+                android:importantForAutofill="no"
+                android:inputType="text"
+                android:textColorHint="@color/colorPrimary"
+                style="@style/EditText"/>
+            <ImageButton
+                android:id="@+id/record_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_gravity="end|center_vertical"
+                android:layout_marginStart="@dimen/horizontal_margin_quarter"
+                android:paddingTop="@dimen/vertical_margin_quarter"
+                android:paddingBottom="@dimen/vertical_margin_quarter"
+                android:paddingStart="@dimen/horizontal_margin_half"
+                android:paddingEnd="@dimen/horizontal_margin_half"
+                android:background="@color/colorPrimaryDark"
+                android:src="@drawable/ic_record_white"
+                android:onClick="toggleRecord"
+                android:contentDescription="@string/audio_record_content_desc"/>
+        </RelativeLayout>
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/vertical_margin_quarter">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/horizontal_margin_quarter"
+                android:layout_marginBottom="@dimen/horizontal_margin_half"
+                android:layout_alignParentStart="true"
+                android:layout_alignParentBottom="true"
+                android:layout_toStartOf="@+id/button_cancel"
+                android:text="@string/audio_record_format"
+                style="@style/IconTitleTheme" />
+
+            <Button
+                android:id="@+id/button_cancel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_toStartOf="@+id/button_save"
+                android:layout_marginEnd="@dimen/horizontal_margin_quarter"
+                android:layout_marginStart="@dimen/horizontal_margin_quarter"
+                android:layout_marginTop="@dimen/vertical_margin_quarter"
+                android:layout_marginBottom="@dimen/vertical_margin_quarter"
+                android:text="@string/button_cancel"
+                android:onClick="cancelRecord"
+                style="@style/Button"/>
+
+            <Button
+                android:id="@+id/button_save"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_marginEnd="@dimen/horizontal_margin_quarter"
+                android:layout_marginStart="@dimen/horizontal_margin_quarter"
+                android:layout_marginTop="@dimen/vertical_margin_quarter"
+                android:layout_marginBottom="@dimen/vertical_margin_quarter"
+                android:text="@string/button_save"
+                android:onClick="saveRecord"
+                style="@style/Button"/>
+        </RelativeLayout>
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
