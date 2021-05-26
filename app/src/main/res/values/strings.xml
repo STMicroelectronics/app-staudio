@@ -8,6 +8,7 @@
     <string name="play_pane_title">Player</string>
 
     <string name="audio_play_content_desc">play or pause audio</string>
+    <string name="usb_content_desc">Scan USB</string>
 
     <string-array name="audio_play_outputs">
         <item>Speaker</item>

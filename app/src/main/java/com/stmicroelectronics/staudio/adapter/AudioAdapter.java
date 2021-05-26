@@ -17,6 +17,7 @@ import com.stmicroelectronics.staudio.data.AudioDetails;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Predicate;
 
 import timber.log.Timber;
@@ -34,7 +35,8 @@ public class AudioAdapter extends RecyclerView.Adapter<AudioAdapter.ViewHolder>{
         mListener = listener;
     }
     private boolean mPlay = false;
-    private int mPlayPosition = 0;
+    private int mPlayAdapterPosition = 0;
+    private int mPlayPreviousAdapterPosition = 0;
 
     @NonNull
     @Override
@@ -62,6 +64,14 @@ public class AudioAdapter extends RecyclerView.Adapter<AudioAdapter.ViewHolder>{
             holder.volumeType.setText(R.string.volume_internal);
         }
 
+        if (audio.getAudioDuration() > 0) {
+            holder.audioDuration.setText(getTimeString(audio.getAudioDuration().intValue()));
+            holder.audioDuration.setVisibility(View.VISIBLE);
+        } else {
+            holder.audioDuration.setVisibility(View.INVISIBLE);
+        }
+        holder.audioPosition.setVisibility(View.INVISIBLE);
+
         holder.togglePlay = true;
         holder.audioPlay.setImageResource(R.drawable.ic_play_arrow_white);
 
@@ -77,11 +87,32 @@ public class AudioAdapter extends RecyclerView.Adapter<AudioAdapter.ViewHolder>{
         return arrayList.size();
     }
 
+    private String getTimeString(int millis) {
+        int hours = (int) (millis / (1000 * 60 * 60));
+        int minutes = (int) ((millis % (1000 * 60 * 60)) / (1000 * 60));
+        int seconds = (int) (((millis % (1000 * 60 * 60)) % (1000 * 60)) / 1000);
+
+        String time;
+        if (hours > 0) {
+            time = String.format(Locale.FRENCH, "%02d", hours) +
+                    ":" +
+                    String.format(Locale.FRENCH, "%02d", minutes) +
+                    ":" +
+                    String.format(Locale.FRENCH, "%02d", seconds);
+        } else {
+            time = String.format(Locale.FRENCH, "%02d", minutes) +
+                    ":" +
+                    String.format(Locale.FRENCH, "%02d", seconds);
+        }
+
+        return time;
+    }
+
     public boolean isPermissionGranted (List<UriPermission> permissionList) {
         for (AudioDetails details : arrayList) {
             details.setPermissionGranted(false);
             for (UriPermission permission:permissionList) {
-                if ((permission.getUri() == null) || (permission.getUri() == details.getAudioUriPermission())) {
+                if ((permission.getUri() == null) || (permission.getUri().equals(details.getAudioUriPermission()))) {
                     details.setPermissionGranted(true);
                     break;
                 }
@@ -97,14 +128,43 @@ public class AudioAdapter extends RecyclerView.Adapter<AudioAdapter.ViewHolder>{
         mPlay = false;
     }
 
+    public void updateDuration(RecyclerView view, int duration) {
+        ViewHolder holder = (ViewHolder) view.findViewHolderForAdapterPosition(mPlayAdapterPosition);
+        if (duration > 0) {
+            holder.audioDuration.setText(getTimeString(duration));
+            holder.audioDuration.setVisibility(View.VISIBLE);
+        } else {
+            holder.audioDuration.setVisibility(View.INVISIBLE);
+        }
+    }
+
+    public void updatePosition(RecyclerView view, int position) {
+        ViewHolder holder = (ViewHolder) view.findViewHolderForAdapterPosition(mPlayAdapterPosition);
+        if (position > 0) {
+            holder.audioPosition.setText(getTimeString(position));
+            holder.audioPosition.setVisibility(View.VISIBLE);
+        } else {
+            holder.audioPosition.setVisibility(View.INVISIBLE);
+        }
+    }
+
     public void playerCompletion(RecyclerView view){
         if (mPlay) {
-            ViewHolder holder = (ViewHolder) view.findViewHolderForAdapterPosition(mPlayPosition);
+            ViewHolder holder = (ViewHolder) view.findViewHolderForAdapterPosition(mPlayAdapterPosition);
             if (holder != null) {
                 holder.audioPlay.setImageResource(R.drawable.ic_play_arrow_white);
                 holder.togglePlay = true;
             }
             mPlay = false;
+        }
+    }
+
+    public void hidePreviousPosition(RecyclerView view){
+        if (mPlayPreviousAdapterPosition != mPlayAdapterPosition) {
+            ViewHolder holder = (ViewHolder) view.findViewHolderForAdapterPosition(mPlayPreviousAdapterPosition);
+            if (holder != null) {
+                holder.audioPosition.setVisibility(View.INVISIBLE);
+            }
         }
     }
 
@@ -209,6 +269,9 @@ public class AudioAdapter extends RecyclerView.Adapter<AudioAdapter.ViewHolder>{
         ImageButton audioPlay;
         ImageButton audioDelete;
 
+        TextView audioPosition;
+        TextView audioDuration;
+
         boolean togglePlay = true;
 
         ViewHolder(View itemView) {
@@ -218,6 +281,9 @@ public class AudioAdapter extends RecyclerView.Adapter<AudioAdapter.ViewHolder>{
             audioTitle = itemView.findViewById(R.id.audio_title);
             audioPlay = itemView.findViewById(R.id.button_audio_play);
             audioDelete = itemView.findViewById(R.id.button_audio_delete);
+
+            audioPosition = itemView.findViewById(R.id.current_position);
+            audioDuration = itemView.findViewById(R.id.duration);
 
             audioPlay.setOnClickListener(this);
 
@@ -241,7 +307,8 @@ public class AudioAdapter extends RecyclerView.Adapter<AudioAdapter.ViewHolder>{
                 if (audio.getAudioUri() != null) {
                     if ((togglePlay) && (!mPlay)) {
                         audioPlay.setImageResource(R.drawable.ic_pause_white);
-                        mPlayPosition = adapterPosition;
+                        mPlayPreviousAdapterPosition = mPlayAdapterPosition;
+                        mPlayAdapterPosition = adapterPosition;
                         mPlay = true;
                         mListener.onClick(audio, togglePlay);
                         togglePlay = false;

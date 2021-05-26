@@ -15,13 +15,18 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.UriPermission;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.drawable.Drawable;
+import android.hardware.usb.UsbConstants;
+import android.hardware.usb.UsbDevice;
+import android.hardware.usb.UsbManager;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
@@ -53,8 +58,11 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import timber.log.Timber;
 
@@ -79,6 +87,10 @@ public class MainActivity extends AppCompatActivity implements AudioAdapter.OnCl
     EditText mRecordEditTextView;
     ImageButton mRecordButtonView;
 
+    ImageButton mScanUsbButton;
+
+    Timer mTimer;
+
     private boolean mPrimaryStorageReadGranted = false;
     private boolean mPrimaryStorageWriteGranted = false;
     private boolean mRecordAudioGranted = false;
@@ -90,6 +102,51 @@ public class MainActivity extends AppCompatActivity implements AudioAdapter.OnCl
     private boolean mMediaRecorderState = false;
     private File mMediaRecorderFile;
     private boolean mMediaRecorderFilePrimary = false;
+
+    private int mNbUSBDevices = 0;
+    private boolean mNewUSBDeviceAttached = false;
+
+    private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
+
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+
+            UsbDevice usbDevice = (UsbDevice)intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+
+            if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
+                synchronized (this) {
+                    for (int i = 0; i < usbDevice.getInterfaceCount(); i++) {
+                        if (usbDevice.getInterface(i).getInterfaceClass() == UsbConstants.USB_CLASS_MASS_STORAGE) {
+                            mNbUSBDevices--;
+                            if (mNbUSBDevices < 0) {
+                                mNbUSBDevices = 0;
+                            }
+                            Timber.d("USB device (USB_CLASS_MASS_STORAGE) detached");
+                        }
+                    }
+                }
+                if (mNbUSBDevices == 0) {
+                    mScanUsbButton.setVisibility(View.INVISIBLE);
+                    mAudioAdapter.removeAllExternalItems();
+                }
+            }
+
+            if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(action)) {
+                synchronized (this) {
+                    for (int i = 0; i < usbDevice.getInterfaceCount(); i++) {
+                        if (usbDevice.getInterface(i).getInterfaceClass() == UsbConstants.USB_CLASS_MASS_STORAGE) {
+                            mNbUSBDevices++;
+                            mNewUSBDeviceAttached = true;
+                            Timber.d("USB device (USB_CLASS_MASS_STORAGE) attached");
+                        }
+                    }
+                }
+                if (mNbUSBDevices > 0) {
+                    mScanUsbButton.setVisibility(View.VISIBLE);
+                }
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -103,6 +160,7 @@ public class MainActivity extends AppCompatActivity implements AudioAdapter.OnCl
         mRecordCardView = findViewById(R.id.record_card);
         mRecordEditTextView = findViewById(R.id.record_edit);
         mRecordButtonView = findViewById(R.id.record_button);
+        mScanUsbButton = findViewById(R.id.button_usb);
 
         // initialize the RecyclerView for audio list
         initRecycler();
@@ -134,6 +192,30 @@ public class MainActivity extends AppCompatActivity implements AudioAdapter.OnCl
         });
         mSwipeRefreshView.setColorSchemeResources(R.color.colorPrimary, R.color.colorPrimaryDark, R.color.colorAccent);
 
+        // Register an intent filter so we can get device attached/removed messages
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
+        filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
+        registerReceiver(mUsbReceiver, filter);
+
+        UsbManager usbManager = (UsbManager)getSystemService(Context.USB_SERVICE);
+        if (usbManager != null) {
+            HashMap<String, UsbDevice> deviceList = usbManager.getDeviceList();
+            for (UsbDevice usbDevice : deviceList.values()) {
+                for (int i = 0; i < usbDevice.getInterfaceCount(); i++) {
+                    if (usbDevice.getInterface(i).getInterfaceClass() == UsbConstants.USB_CLASS_MASS_STORAGE) {
+                        mNbUSBDevices++;
+                    }
+                }
+            }
+        }
+
+        if (mNbUSBDevices > 0) {
+            mScanUsbButton.setVisibility(View.VISIBLE);
+        } else {
+            mScanUsbButton.setVisibility(View.INVISIBLE);
+        }
+
         // initialize media player
         initPlayer();
 
@@ -153,15 +235,24 @@ public class MainActivity extends AppCompatActivity implements AudioAdapter.OnCl
     }
 
     @Override
+    public void onBackPressed() {
+        moveTaskToBack(true);
+    }
+
+    @Override
     protected void onDestroy() {
         if (mMediaRecorder != null) {
             mMediaRecorder.release();
             mMediaRecorder = null;
         }
+        if (mTimer != null) {
+            mTimer.cancel();
+            mTimer.purge();
+        }
         super.onDestroy();
     }
 
-    private void initRecycler(){
+    private void initRecycler() {
         mAudioAdapter = new AudioAdapter(this);
         mAudioListView.setAdapter(mAudioAdapter);
         DividerItemDecoration itemDecoration = new DividerItemDecoration(this,DividerItemDecoration.VERTICAL);
@@ -192,6 +283,7 @@ public class MainActivity extends AppCompatActivity implements AudioAdapter.OnCl
                 parsePrimary();
             }
             if (mExternalAccessGranted) {
+                mAudioAdapter.removeAllExternalItems();
                 List<UriPermission> list = getContentResolver().getPersistedUriPermissions();
                 for (UriPermission permission : list) {
                     parseExternal(permission.getUri());
@@ -258,11 +350,12 @@ public class MainActivity extends AppCompatActivity implements AudioAdapter.OnCl
     public void scanExternal(View view) {
         mSwipeRefreshView.setRefreshing(true);
         List<UriPermission> list = getContentResolver().getPersistedUriPermissions();
-        if (list.isEmpty() || ! mAudioAdapter.isPermissionGranted(list)) {
+        if (list.isEmpty() || ! mAudioAdapter.isPermissionGranted(list) || mNewUSBDeviceAttached) {
             // At least one element in list not granted (or list empty)
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
             startActivityForResult(intent, GET_EXTERNAL_ACCESS);
         } else {
+            mAudioAdapter.removeAllExternalItems();
             for (UriPermission permission:list){
                 parseExternal(permission.getUri());
             }
@@ -281,6 +374,13 @@ public class MainActivity extends AppCompatActivity implements AudioAdapter.OnCl
         super.onActivityResult(requestCode, resultCode, data);
 
         if (requestCode == GET_EXTERNAL_ACCESS) {
+            mAudioAdapter.removeAllExternalItems();
+            List<UriPermission> list = getContentResolver().getPersistedUriPermissions();
+            if (! list.isEmpty()) {
+                for (UriPermission permission:list){
+                    parseExternal(permission.getUri());
+                }
+            }
             if (resultCode == Activity.RESULT_OK) {
                 if (data != null) {
                     Uri treeUri = data.getData();
@@ -292,6 +392,7 @@ public class MainActivity extends AppCompatActivity implements AudioAdapter.OnCl
                         mExternalAccessGranted = true;
                     }
                 }
+                mNewUSBDeviceAttached = false;
             }
             if (mAudioAdapter.getItemCount() > 0) {
                 mAudioMsgView.setVisibility(View.GONE);
@@ -302,7 +403,7 @@ public class MainActivity extends AppCompatActivity implements AudioAdapter.OnCl
         }
     }
 
-    private void parseExternal(Uri treeUri){
+    private void parseExternal(Uri treeUri) {
         if (checkExternalStorageExists(treeUri)) {
             DocumentFile pickedDir = DocumentFile.fromTreeUri(this, treeUri);
             // List all existing files inside picked directory
@@ -362,24 +463,36 @@ public class MainActivity extends AppCompatActivity implements AudioAdapter.OnCl
                             audioList.add(audio);
                         }
                     } else {
-                        if (file.getName() != null && file.getName().equals(EXTERNAL_MUSIC_DIR_NAME)) {
+                        if (file.getName() != null && file.getName().equals(EXTERNAL_MUSIC_DIR_NAME) && file.isDirectory()) {
                             Toast.makeText(this, "Parse USB " + EXTERNAL_MUSIC_DIR_NAME + " directory if exists", Toast.LENGTH_SHORT).show();
-                            if (!file.isDirectory()) {
-                                if (isAudioFile(file)) {
-                                    Timber.d("File available %s", file.getName());
-                                    AudioDetails audio = new AudioDetails();
-                                    audio.setAudioName(file.getName());
-                                    audio.setAudioUri(file.getUri());
-                                    audio.setAudioUriPermission(treeUri);
-                                    audio.setVolume(AudioDetails.AUDIO_VOLUME_EXTERNAL);
+                            for (DocumentFile music : file.listFiles()) {
+                                if (!music.isDirectory()) {
+                                    if (isAudioFile(music)) {
+                                        Timber.d("File available %s", music.getName());
+                                        AudioDetails audio = new AudioDetails();
+                                        audio.setAudioName(music.getName());
+                                        audio.setAudioUri(music.getUri());
+                                        audio.setAudioUriPermission(treeUri);
+                                        audio.setVolume(AudioDetails.AUDIO_VOLUME_EXTERNAL);
 
-                                    try {
-                                        ParcelFileDescriptor fd = getContentResolver().openFileDescriptor(file.getUri(), "r");
-                                        if (fd != null) {
-                                            FileDescriptor descriptor = fd.getFileDescriptor();
-                                            try (FileInputStream is = new FileInputStream(descriptor)) {
-                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                                                    try (MediaMetadataRetriever mmr = new MediaMetadataRetriever()) {
+                                        try {
+                                            ParcelFileDescriptor fd = getContentResolver().openFileDescriptor(music.getUri(), "r");
+                                            if (fd != null) {
+                                                FileDescriptor descriptor = fd.getFileDescriptor();
+                                                try (FileInputStream is = new FileInputStream(descriptor)) {
+                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                                        try (MediaMetadataRetriever mmr = new MediaMetadataRetriever()) {
+                                                            mmr.setDataSource(is.getFD());
+                                                            audio.setAudioDuration(Long.parseLong(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)));
+                                                            audio.setAudioArtist(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST));
+                                                            String title = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE);
+                                                            if (title != null && !title.isEmpty()) {
+                                                                audio.setAudioName(title);
+                                                            }
+                                                        }
+                                                    } else {
+                                                        // close method doesn't exist for Android P (try will call automatically the close method)
+                                                        MediaMetadataRetriever mmr = new MediaMetadataRetriever();
                                                         mmr.setDataSource(is.getFD());
                                                         audio.setAudioDuration(Long.parseLong(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)));
                                                         audio.setAudioArtist(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST));
@@ -388,32 +501,22 @@ public class MainActivity extends AppCompatActivity implements AudioAdapter.OnCl
                                                             audio.setAudioName(title);
                                                         }
                                                     }
-                                                } else {
-                                                    // close method doesn't exist for Android P (try will call automatically the close method)
-                                                    MediaMetadataRetriever mmr = new MediaMetadataRetriever();
-                                                    mmr.setDataSource(is.getFD());
-                                                    audio.setAudioDuration(Long.parseLong(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)));
-                                                    audio.setAudioArtist(mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST));
-                                                    String title = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE);
-                                                    if (title != null && !title.isEmpty()) {
-                                                        audio.setAudioName(title);
-                                                    }
+                                                } catch (Exception e) {
+                                                    Timber.e("File not available : %s", e.getMessage());
+                                                    audio.setAudioArtist(null);
                                                 }
-                                            } catch (Exception e) {
-                                                Timber.e("File not available : %s", e.getMessage());
-                                                audio.setAudioArtist(null);
-                                            }
 
-                                            try {
-                                                fd.close();
-                                            } catch (IOException e) {
-                                                e.printStackTrace();
+                                                try {
+                                                    fd.close();
+                                                } catch (IOException e) {
+                                                    e.printStackTrace();
+                                                }
                                             }
+                                        } catch (FileNotFoundException e) {
+                                            e.printStackTrace();
                                         }
-                                    } catch (FileNotFoundException e) {
-                                        e.printStackTrace();
+                                        audioList.add(audio);
                                     }
-                                    audioList.add(audio);
                                 }
                             }
                         }
@@ -563,6 +666,21 @@ public class MainActivity extends AppCompatActivity implements AudioAdapter.OnCl
 
     private void initPlayer() {
         mPlayer = new MediaPlayer();
+
+        mTimer = new Timer();
+        mTimer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (mPlayer.isPlaying()) {
+                            mAudioAdapter.updatePosition(mAudioListView, mPlayer.getCurrentPosition());
+                        }
+                    }
+                });
+            }
+        },0,1000);
     }
 
     private boolean isStorageAvailable(AudioDetails audio) {
@@ -648,11 +766,16 @@ public class MainActivity extends AppCompatActivity implements AudioAdapter.OnCl
                             mPlayer.setDataSource(getApplicationContext(), audioUri);
                             mPlayer.prepare();
 
+                            mAudioAdapter.hidePreviousPosition(mAudioListView);
+                            mAudioAdapter.updateDuration(mAudioListView, mPlayer.getDuration());
+                            mAudioAdapter.updatePosition(mAudioListView, mPlayer.getCurrentPosition());
+
                         } catch (IOException e) {
                             e.printStackTrace();
                             return;
                         }
                     }
+
                     Timber.d("Audio Playback START");
                     mPlayer.start();
                 } else {
@@ -664,6 +787,8 @@ public class MainActivity extends AppCompatActivity implements AudioAdapter.OnCl
                 }
             } else {
                 if ((togglePlay)  && (! audio.getAudioUri().equals(mCurrentAudioUri))){
+                    mAudioAdapter.hidePreviousPosition(mAudioListView);
+                    mAudioAdapter.updatePosition(mAudioListView,0);
                     mAudioAdapter.resetPlayer();
                 }
             }

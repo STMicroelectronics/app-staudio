@@ -33,18 +33,20 @@
             android:textSize="16sp"
             android:textStyle="bold"/>
 
-        <Button
+        <ImageButton
             android:id="@+id/button_usb"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
+            android:visibility="invisible"
             android:layout_gravity="end"
+            android:layout_marginTop="@dimen/vertical_margin_half"
+            android:layout_marginBottom="@dimen/vertical_margin_half"
             android:layout_marginEnd="@dimen/horizontal_margin_half"
-            android:layout_marginStart="@dimen/horizontal_margin_half"
-            android:layout_marginTop="@dimen/vertical_margin_quarter"
-            android:layout_marginBottom="@dimen/vertical_margin_quarter"
             android:onClick="scanExternal"
-            style="@style/Button"
-            android:text="@string/button_usb"/>
+            android:src="@drawable/logo_usb_black_48dp"
+            android:scaleType="centerInside"
+            android:background="@drawable/custom_btn_grey"
+            android:contentDescription="@string/usb_content_desc"/>
 
     </androidx.cardview.widget.CardView>
 
