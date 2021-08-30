@@ -1,18 +1,5 @@
 package com.stmicroelectronics.staudio;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.cardview.widget.CardView;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.documentfile.provider.DocumentFile;
-import androidx.recyclerview.widget.DividerItemDecoration;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
-
 import android.Manifest;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
@@ -45,6 +32,22 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.cardview.widget.CardView;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.documentfile.provider.DocumentFile;
+import androidx.recyclerview.widget.DividerItemDecoration;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.stmicroelectronics.staudio.adapter.AudioAdapter;
 import com.stmicroelectronics.staudio.data.AudioDetails;
@@ -105,6 +108,44 @@ public class MainActivity extends AppCompatActivity implements AudioAdapter.OnCl
 
     private int mNbUSBDevices = 0;
     private boolean mNewUSBDeviceAttached = false;
+
+    private final ActivityResultLauncher<Intent> mActivityResultLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            new ActivityResultCallback<ActivityResult>() {
+                @Override
+                public void onActivityResult(ActivityResult result) {
+                    mAudioAdapter.removeAllExternalItems();
+                    List<UriPermission> list = getContentResolver().getPersistedUriPermissions();
+                    if (! list.isEmpty()) {
+                        for (UriPermission permission:list){
+                            parseExternal(permission.getUri());
+                        }
+                    }
+
+                    if (result.getResultCode() == Activity.RESULT_OK) {
+                        Intent data = result.getData();
+                        if (data != null) {
+                            Uri treeUri = data.getData();
+                            if (treeUri != null) {
+                                getContentResolver().takePersistableUriPermission(treeUri,
+                                        Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                                                Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                                parseExternal(treeUri);
+                                mExternalAccessGranted = true;
+                            }
+                        }
+                        mNewUSBDeviceAttached = false;
+                    }
+
+                    if (mAudioAdapter.getItemCount() > 0) {
+                        mAudioMsgView.setVisibility(View.GONE);
+                    } else {
+                        mAudioMsgView.setVisibility(View.VISIBLE);
+                    }
+                    mSwipeRefreshView.setRefreshing(false);
+                }
+            }
+    );
 
     private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
 
@@ -303,6 +344,7 @@ public class MainActivity extends AppCompatActivity implements AudioAdapter.OnCl
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_PERMISSION_ST_AUDIO) {
             if (grantResults.length > 0) {
                 int index = 0;
@@ -345,55 +387,19 @@ public class MainActivity extends AppCompatActivity implements AudioAdapter.OnCl
         }
     }
 
-    private final int GET_EXTERNAL_ACCESS=1;
-
     public void scanExternal(View view) {
         mSwipeRefreshView.setRefreshing(true);
         List<UriPermission> list = getContentResolver().getPersistedUriPermissions();
         if (list.isEmpty() || ! mAudioAdapter.isPermissionGranted(list) || mNewUSBDeviceAttached) {
             // At least one element in list not granted (or list empty)
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-            startActivityForResult(intent, GET_EXTERNAL_ACCESS);
+            mActivityResultLauncher.launch(intent);
         } else {
             mAudioAdapter.removeAllExternalItems();
             for (UriPermission permission:list){
                 parseExternal(permission.getUri());
             }
 
-            if (mAudioAdapter.getItemCount() > 0) {
-                mAudioMsgView.setVisibility(View.GONE);
-            } else {
-                mAudioMsgView.setVisibility(View.VISIBLE);
-            }
-            mSwipeRefreshView.setRefreshing(false);
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (requestCode == GET_EXTERNAL_ACCESS) {
-            mAudioAdapter.removeAllExternalItems();
-            List<UriPermission> list = getContentResolver().getPersistedUriPermissions();
-            if (! list.isEmpty()) {
-                for (UriPermission permission:list){
-                    parseExternal(permission.getUri());
-                }
-            }
-            if (resultCode == Activity.RESULT_OK) {
-                if (data != null) {
-                    Uri treeUri = data.getData();
-                    if (treeUri != null) {
-                        getContentResolver().takePersistableUriPermission(treeUri,
-                                Intent.FLAG_GRANT_READ_URI_PERMISSION |
-                                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                        parseExternal(treeUri);
-                        mExternalAccessGranted = true;
-                    }
-                }
-                mNewUSBDeviceAttached = false;
-            }
             if (mAudioAdapter.getItemCount() > 0) {
                 mAudioMsgView.setVisibility(View.GONE);
             } else {
